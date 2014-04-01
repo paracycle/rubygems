@@ -11,4 +11,5 @@
 /notes.txt
 /pkg
 /tmp
+/test/rubygems/tuf/*
 root.txt

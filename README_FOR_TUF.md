@@ -13,3 +13,15 @@ Then install a gem:
     ruby -S --disable-gems bin/gem install --tuf \
       --clear-sources --source http://localhost:3000 \
       yourgem
+
+
+## Tests
+----
+
+In order to run tests, you currently need to generate test metadata by hand, using a script.
+
+Just run the script:
+
+    ruby -rubygems -Ilib util/create_tuf_metadata.rb
+
+and the metadata files will be ready waiting for you in `test/rubygems/tuf` folder.
