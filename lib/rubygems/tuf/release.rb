@@ -6,11 +6,11 @@ class Gem::TUF::Release
   def initialize root, release_txt
     parsed = JSON.parse release_txt
     @release = root.verify(:release, parsed)
-    @targets = @release["meta"]["targets.txt"]
+    @targets = @release["meta"]["metadata/targets.txt"]
   end
 
   def should_update_root? current_root_txt
-    @release["meta"]["root.txt"]["hashes"].any? do |type, expected_digest|
+    @release["meta"]["metadata/root.txt"]["hashes"].any? do |type, expected_digest|
       expected_digest != current_digest(type, current_root_txt)
     end
   end
