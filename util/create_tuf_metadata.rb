@@ -34,16 +34,26 @@ def deserialize_role_key role_name
 end
 
 def file_for_role(role)
-  Gem::TUF::File.new("#{role}.txt", File.read("test/rubygems/tuf/#{role}.txt"))
+  Gem::TUF::File.new("metadata/#{role}.txt", File.read("test/rubygems/tuf/#{role}.txt"))
 end
 
 def write_signed_metadata(role, metadata)
   rsa_key = deserialize_role_key(role)
   key = Gem::TUF::Key.private_key(rsa_key)
   signed_content = Gem::TUF::Signer.sign({"signed" => metadata}, key)
-  File.write("test/rubygems/tuf/#{role}.txt", JSON.pretty_generate(signed_content))
+  json_data = JSON.pretty_generate(signed_content)
+  hash = Gem::TUF::HASH_ALGORITHM.hexdigest(json_data)
+  File.write("test/rubygems/tuf/#{role}.txt", json_data)
+  File.write("test/rubygems/tuf/#{role}.#{hash}.txt", json_data)
 end
 
+def delete_old_metadata
+  ROLE_NAMES.each do |role|
+    Dir["test/rubygems/tuf/#{role}*.txt"].each do |path|
+      File.delete path
+    end
+  end
+end
 def generate_test_root
   roles = {}
   keys = {}
@@ -91,6 +101,7 @@ def generate_test_release
 end
 
 def generate_test_metadata
+  delete_old_metadata
   generate_test_root
   generate_test_targets
   generate_test_release
