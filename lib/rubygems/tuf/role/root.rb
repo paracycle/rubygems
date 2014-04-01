@@ -25,7 +25,7 @@ module Gem::TUF
         @root
       end
 
-      def unwrap_role(role, content)
+      def unwrap_role(content)
         # TODO: get threshold for role rather than requiring all signatures to be
         # valid.
         signer.unwrap(content, self)
@@ -38,7 +38,7 @@ module Gem::TUF
 
         # Verify that this role contains sufficent public keys to unwrap what
         # was just signed.
-        unwrap_role role, signed
+        unwrap_role signed
 
         signed
       end
@@ -49,7 +49,7 @@ module Gem::TUF
             keys[key.id] ||= key.to_hash
           end
 
-          roles[role_spec.role] = role_spec.metadata(false)
+          roles[role_spec.role] = role_spec.metadata
         end
       end
 

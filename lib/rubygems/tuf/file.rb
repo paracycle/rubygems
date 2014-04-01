@@ -6,15 +6,9 @@ module Gem::TUF
       new(path, body)
     end
 
-    def self.from_metadata(path, metadata)
-      FileSpec.new(path, metadata)
-    end
-
     def initialize(path, body)
-      @path   = path
-      @body   = body
-      @length = body.bytesize
-      @hash   = Gem::TUF::HASH_ALGORITHM.hexdigest(@body)
+      @path     = path
+      self.body = body
     end
 
     def to_hash
@@ -25,41 +19,57 @@ module Gem::TUF
     end
 
     def path_with_hash
+      return path if hash.nil?
+
       ext  = ::File.extname(path)
       dir  = ::File.dirname(path)
       base = ::File.basename(path, ext)
 
       ::File.join(dir, base + '.' + hash + ext)
+    end
+
+    def body=(_body)
+      return if _body.nil?
+
+      hash   = Gem::TUF::HASH_ALGORITHM.hexdigest(_body)
+      length = _body.bytesize
+
+      if self.length.nil?
+        @length = length
+      else
+        raise "Invalid length for #{path}. Expected #{length}, got #{file.length}" unless self.length == length
+      end
+
+      if self.hash.nil?
+        @hash = hash
+      else
+        raise "Invalid hash for #{path}" unless self.hash == hash
+      end
+
+      @body = _body
     end
 
     attr_reader :path, :body, :length, :hash
   end
 
-  class FileSpec
-    attr_reader :path, :length, :hash
+  class RemoteFile < File
+    def initialize(path, bucket, metadata = nil)
+      super(path, nil)
 
-    def initialize(path, metadata)
-      @path   = path
-      @hash   = metadata.fetch('hashes').fetch(Gem::TUF::HASH_ALGORITHM_NAME)
-      @length = metadata.fetch('length')
+      @metadata = metadata
+
+      unless metadata.nil?
+        @hash   = metadata.fetch('hashes').fetch(Gem::TUF::HASH_ALGORITHM_NAME)
+        @length = metadata.fetch('length')
+      end
+
+      fetch(bucket)
     end
 
-    # TODO: De-dup with above
-    def path_with_hash
-      ext  = ::File.extname(path)
-      dir  = ::File.dirname(path)
-      base = ::File.basename(path, ext)
-
-      ::File.join(dir, base + '.' + hash + ext)
+    def fetch(bucket)
+      @body = bucket.get(path_with_hash)
     end
 
-    def attach_body!(body)
-      file = File.from_body(path, body)
-
-      raise "Invalid length for #{path}. Expected #{length}, got #{file.length}" unless file.length == length
-      raise "Invalid hash for #{path}" unless file.hash == hash
-
-      file
-    end
+    attr_reader :parent_role
   end
 end

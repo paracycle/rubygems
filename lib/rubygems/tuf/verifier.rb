@@ -13,6 +13,8 @@ class Gem::TUF::Verifier
     expiration = Time.parse(signed['expires'])
     raise Gem::TUF::VerificationError, "document is expired" if expiration <= now
 
+    # TODO: Verify version?
+
     signatures = json['signatures']
     raise ArgumentError, "no signatures present" unless signatures
 

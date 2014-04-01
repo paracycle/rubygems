@@ -1,64 +1,48 @@
 require 'rubygems/tuf'
-
 # TODO: Move this code in here
 # $LOAD_PATH.unshift(File.expand_path("~/Code/os/rubygems.org/app/models"))
 
-require 'rubygems/tuf/repository'
+require 'rubygems/tuf/metadata_store'
 
-class HttpBucket
-  def initialize(fetcher, initial_uri)
+class DelegatingBucket
+  def initialize(fetcher)
     @fetcher     = fetcher
-
-    # Used as the remote host, scheme and port for all future requests. This is
-    # kind of weird but I'm not sure a better way to pass it through.
-    @initial_uri = initial_uri
-  end
+   end
 
   def get(path, opts = {})
-    # TODO: https, options
-    # TODO: Caching
-    uri = @initial_uri.dup
-    uri.path = '/' + path
-    @fetcher.fetch_http(uri)
+    # TODO: options & caching
+    @fetcher.call(path)
   end
 
   def create(*)
     raise "Not supported, this is a read-only bucket."
-  end
+   end
 end
 
 class Gem::TUF::Fetcher < Gem::RemoteFetcher
-  def initialize(proxy)
+  def initialize(proxy=nil, dns=Resolv::DNS.new)
     super
+    @store = Gem::TUF::MetadataStore.new
   end
 
   def fetch_path(uri, mtime = nil, head = false)
-    # TODO: Support updating of root.txt
-    # TODO: Support loading resource from JAR/JRuby?
-    last_good_root = File.read('root.txt') ||
-                     raise("Can't find root.txt")
+    fetcher = Proc.new do |path|
+                super(uri_for_path(uri, path), nil, nil)
+              end
 
-    repository = Gem::TUF::Repository.new(
-      root:   JSON.parse(last_good_root),
-      bucket: HttpBucket.new(self, uri)
-    )
+    @store.bucket = DelegatingBucket.new(fetcher)
 
-    file = repository.target(uri.path[1..-1])
-    if file
-      data = file.body
+    @store.bootstrap
 
-      # TODO: DRY up with RemoteFetcher
-      if data and !head and uri.to_s =~ /gz$/
-        begin
-          data = Gem.gunzip data
-        rescue Zlib::GzipFile::Error
-          raise FetchError.new("server did not return a valid file", uri.to_s)
-        end
-      end
+    @store.target(uri.path[1..-1])
+  end
 
-      data
-    else
-      raise FetchError.new("server did not return a valid file", uri.to_s)
-    end
+  private
+
+  def uri_for_path(uri, path)
+    uri = uri.dup
+    puts uri.path[1..-1]
+    uri.path = '/' + path
+    uri
   end
 end
